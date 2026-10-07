@@ -85,6 +85,8 @@ Clash Party 数据可能在 AppData/Roaming/mihomo-party，仍需现场确认。
 
 修复只覆盖已确认失败的目标规则与 DNS policy；生成配置先经当前 Mihomo `-t` 验证，再通过现有受支持 API/客户端加载，保留其他 Selector 的选择。若现有自动组只测 Google，不能代表 ChatGPT 健康；可建立仅针对 Codex 目标的独立组，候选经过目标测试，并保留用户原有通用选择。没有地区偏好就不固定日本优先。只改生成配置不是持久修复，需验证覆写重新生成。
 
+部分 Clash Party 版本缓存覆写索引：直接写入 override.yaml 的新条目可能直到客户端重载/重启才被采用。优先对已启用的持久覆写做最小合并，或通过当前支持的客户端接口注册；保留已有 DNS 与其他键。只读检查当前安装实现可确认缓存与文件读取行为，并在隔离进程中用实际合并函数验证重生成的配置与已验收配置一致，不执行或修改整个应用包。核心 API 重载与桌面客户端重新生成是不同动作，尚未进行的动作分别报告。
+
 不要在 Windows 创建 /etc/resolver、LaunchAgent，或把 macOS supplemental resolver 方案改写成全机 DNS。NRPT/hosts 属系统级变更，应在证据明确且用户授权相应范围后另行处理；通常先修代理内部定向规则。
 
 ## 4. 当前进程、Dot 与 Computer Use 的验收
