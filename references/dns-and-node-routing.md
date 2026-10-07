@@ -2,6 +2,8 @@
 
 适用于代理端口正常但 Codex 仍反复重连，尤其是 TUN 已开启、目标域名超时、系统 DNS 与可信 DoH 不一致，或用户要求地区优先和自动选节点。先检查当前状态；仅诊断请求不修改配置。
 
+Windows 先读 [Windows 参考](windows.md) 的 DNS、控制接口与 ACL 部分；下文的 scutil、UNIX socket 与 en0 是 macOS 示例，其余判断与最小持久覆写原则共用。
+
 ## 区分 DNS 和远端节点故障
 
 - 对比系统 `getaddrinfo`、`scutil --dns`、代理内部 DNS、经已验证代理访问的可信 DoH。fake-ip 的 `198.18.x.x` 是正常映射；不同 CDN 地址本身不足以证明污染。
@@ -15,7 +17,7 @@ Clash Party/Mihomo 的订阅、覆写源和生成的运行配置是不同文件�
 
 1. 从当前 Mihomo 进程参数读取 `-d` 和 `-ext-ctl-unix`。运行配置可能位于 `.../mihomo-party/work/config.yaml`；不能把根目录 `mihomo.yaml` 直接当作当前进程的运行配置。UNIX socket 也可能随进程变化，不沿用旧路径。
 2. 找到当前启用的持久覆写。优先在该覆写中最小修改，再通过应用保存/重新生成。只改 `work/config.yaml` 可能被订阅更新覆盖。
-3. 完整配置和覆写先备份到用户私有目录，目录 700、文件 600；不要输出节点密码、订阅 URL、完整配置或完整环境。诊断报告也限制权限，因为出口 IP 属于网络元数据。
+3. 完整配置和覆写先备份到用户私有目录，macOS 目录 700、文件 600，Windows 用当前用户私有 NTFS ACL；不要输出节点密码、订阅 URL、完整配置或完整环境。诊断报告也限制权限，因为出口 IP 属于网络元数据。
 4. 改动后运行当前 Mihomo 的 `-t -f <候选运行配置>`。加载可用本机官方控制 API：`PUT /configs?force=true`，JSON 为 `{"path":"绝对运行配置路径"}`，预期 HTTP 204；必要时 `POST /cache/dns/flush`。`GET /configs` 通常只返回基础设置，不能据此断言 DNS policy 已加载。
 5. 对照持久源和生成配置，并验证一次应用重新生成后仍保留规则。重载前保存现有 Selector 的 `now`；重载后只恢复被改变且仍有效的原选项，保留用户其他选择。测试自动组时不要手动锁定其当前节点。
 
@@ -88,6 +90,8 @@ python3 "$HOME/.codex/skills/websocket-fix/scripts/probe_proxy_exits.py" \
   --interface en0 --country JP \
   --report '/用户私有目录/node-exits.json'
 ```
+
+Windows 用 `python '<skill目录>\scripts\probe_proxy_exits.py'` 与实际 `.exe`、网卡、运行配置路径，PowerShell 续行使用反引号。脚本两平台共用，不修改主代理；Windows 子进程隐藏窗口，使用 ACL 而不是 chmod 保护临时文件与输出。
 
 `--runtime-config` 是当前生成配置；`--mihomo-bin` 是当前核心；`--interface` 指定真实出网接口；`--country` 是两位国家代码；`--report` 写入权限 600 的 JSON。可重复 `--node '精确节点名'` 限定范围；`--parallel` 限制并发，`--timeout` 为每次请求设秒数上限。报告仅含节点名/类型、出口 IP/国家、耗时及目标状态；完整凭据不会进入报告。探测异常时先检查接口、配置兼容性和 DNS，不自动改主配置或安装全局依赖。
 

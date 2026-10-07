@@ -1,0 +1,16 @@
+name: Cross-platform script checks
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  scripts:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -v
+      - run: python scripts/diagnose_network.py --help
+      - run: python scripts/probe_proxy_exits.py --help

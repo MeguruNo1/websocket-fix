@@ -2,6 +2,8 @@
 
 适用于 Dot 的“恢复对话失败 / Codex app-server is not available”，尤其是 `hostId=durable`、`remote_unavailable`、`open_timeout` 和关闭代码 `1006`。不要将这个通用报错直接认定为本地 app-server 崩溃。
 
+Windows 使用 [Windows 参考](windows.md) 的进程、日志、代理与 DNS 工具；此处 /etc/resolver 方案仅用于 macOS，不能在 Windows 照搬。连接对象、代理实现检查和实际恢复验收两平台共用。
+
 ## 先确定连接对象
 
 - 当前进程日志中分别检查 `hostId=local` 的初始化和 `hostId=durable` 的连接。客户端可能本地正常、云端持续失败。

@@ -14,6 +14,8 @@ import tempfile
 import time
 from urllib.parse import urlparse
 
+from platform_support import process_options, protect_private_path, write_private
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -38,7 +40,7 @@ def parse_args():
             parser.error("trace URLs must be HTTPS URLs without embedded credentials")
     if not args.runtime_config.is_file() or not args.mihomo_bin.is_file():
         parser.error("runtime config and Mihomo binary must be existing files")
-    if not shutil.which("curl"):
+    if not shutil.which("curl.exe" if os.name == "nt" else "curl"):
         parser.error("curl is required")
     return args
 
@@ -64,12 +66,12 @@ def allocate_ports(count):
 
 def trace(url, port, timeout, env):
     started = time.monotonic()
-    command = ["curl", "--disable", "--silent", "--show-error", "--fail",
+    command = ["curl.exe" if os.name == "nt" else "curl", "--disable", "--silent", "--show-error", "--fail",
                "--max-time", str(timeout), "--proxy", f"http://127.0.0.1:{port}",
                "--noproxy", "", url]
     try:
         result = subprocess.run(command, capture_output=True, text=True, env=env,
-                                timeout=timeout + 2)
+                                timeout=timeout + 2, **process_options())
     except subprocess.TimeoutExpired:
         return {"ok": False, "seconds": round(time.monotonic() - started, 3),
                 "error": "request timeout"}
@@ -103,17 +105,7 @@ def probe(node, port, args, env):
 
 
 def write_report(path, report):
-    path = path.expanduser().resolve()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(prefix=".node-exits-", dir=path.parent)
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as output:
-            json.dump(report, output, ensure_ascii=False, indent=2)
-            output.write("\n")
-        os.replace(temporary, path)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+    write_private(path, json.dumps(report, ensure_ascii=False, indent=2) + "\n")
 
 
 def run(args):
@@ -144,7 +136,7 @@ def run(args):
     ports = allocate_ports(len(nodes))
     with tempfile.TemporaryDirectory(prefix="codex-node-probe-") as temporary:
         directory = Path(temporary)
-        os.chmod(directory, 0o700)
+        protect_private_path(directory)
         config = {"mode": "rule", "log-level": "error", "ipv6": True,
                   "tun": {"enable": False}, "proxies": nodes,
                   "rules": ["MATCH,DIRECT"], "listeners": [
@@ -161,17 +153,19 @@ def run(args):
                          "nameserver": resolvers or ["1.1.1.1", "8.8.8.8"]}
         config_path = directory / "config.yaml"
         config_path.touch(mode=0o600)
+        protect_private_path(config_path)
         config_path.write_text(yaml.safe_dump(config, allow_unicode=True, sort_keys=False), encoding="utf-8")
         binary = str(args.mihomo_bin.resolve())
         log_path = directory / "core.log"
         log_path.touch(mode=0o600)
+        protect_private_path(log_path)
         with log_path.open("w", encoding="utf-8") as log:
             valid = subprocess.run([binary, "-t", "-d", temporary, "-f", str(config_path)],
-                                   stdout=log, stderr=log, env=env, timeout=20)
+                                   stdout=log, stderr=log, env=env, timeout=20, **process_options())
             if valid.returncode:
                 raise RuntimeError("isolated Mihomo config validation failed; no main config was changed")
             process = subprocess.Popen([binary, "-d", temporary, "-f", str(config_path)],
-                                       stdout=log, stderr=log, env=env)
+                                       stdout=log, stderr=log, env=env, **process_options())
             try:
                 deadline = time.monotonic() + 10
                 waiting = set(ports)
